@@ -6,10 +6,13 @@ Implements:
 - Community detection using Louvain algorithm
 - Hierarchical community structure
 - LLM-based community summarization
+- Timeout protection for large graphs
 """
 
+import asyncio
+import concurrent.futures
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -63,6 +66,7 @@ class CommunityDetector:
         max_levels: int = 2,
         min_community_size: int = 2,
         resolution: float = 1.0,
+        timeout_s: float = 60.0,
     ) -> list[Community]:
         """
         Build hierarchical communities from the entity graph.
@@ -71,9 +75,10 @@ class CommunityDetector:
             max_levels: Maximum hierarchy levels
             min_community_size: Minimum entities per community
             resolution: Louvain resolution parameter (higher = more communities)
+            timeout_s: Timeout for community detection (default 60s)
 
         Returns:
-            List of detected communities
+            List of detected communities (may be partial on timeout)
         """
         try:
             import networkx as nx
@@ -144,13 +149,26 @@ class CommunityDetector:
             logger.info(f"Detecting communities at level {level}...")
 
             try:
-                # Louvain community detection
-                communities_sets = louvain_communities(
-                    current_graph,
-                    weight="weight",
-                    resolution=resolution,
-                    seed=42,
-                )
+                # Louvain community detection (run in executor with timeout)
+                loop = asyncio.get_event_loop()
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    try:
+                        communities_sets = await asyncio.wait_for(
+                            loop.run_in_executor(
+                                executor,
+                                lambda: louvain_communities(
+                                    current_graph,
+                                    weight="weight",
+                                    resolution=resolution,
+                                    seed=42,
+                                ),
+                            ),
+                            timeout=timeout_s,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Community detection timed out at level {level} after {timeout_s}s")
+                        # Return partial results collected so far
+                        return all_communities
 
                 # Filter by minimum size
                 communities_sets = [c for c in communities_sets if len(c) >= min_community_size]

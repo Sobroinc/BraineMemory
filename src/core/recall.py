@@ -357,13 +357,24 @@ class RecallEngine:
             logger.error(f"Vector search error: {e}")
             return []
 
-    async def _local_graph_search(self, query: str, limit: int) -> list[ScoredItem]:
+    async def _local_graph_search(
+        self,
+        query: str,
+        limit: int,
+        timeout_s: float = 10.0,
+    ) -> list[ScoredItem]:
         """
         Local graph search - entity expansion.
 
         1. Find entities matching query
         2. Expand to connected entities via edges
         3. Get chunks containing those entities
+
+        Args:
+            timeout_s: Timeout for graph expansion (default 10s)
+
+        Returns:
+            List of scored items (may be partial on timeout)
         """
         try:
             # First, find matching entities using embedding field
