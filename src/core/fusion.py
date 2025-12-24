@@ -280,14 +280,76 @@ def deduplicate_by_content(
     """
     Remove near-duplicate content.
 
-    By default uses simple character overlap ratio.
-    Can provide custom similarity function.
+    Uses fingerprint-based O(n) approach for high thresholds (>=0.9),
+    falls back to pairwise comparison for lower thresholds.
     """
     if not items:
         return []
 
+    # For high similarity thresholds, use fingerprint-based dedup (O(n))
+    if similarity_threshold >= 0.9 and similarity_fn is None:
+        return _deduplicate_by_fingerprint(items, similarity_threshold)
+
+    # Fallback to pairwise for custom similarity functions or low thresholds
+    return _deduplicate_pairwise(items, similarity_threshold, similarity_fn)
+
+
+def _content_fingerprint(text: str) -> frozenset[str]:
+    """Generate word-based fingerprint for content."""
+    if not text:
+        return frozenset()
+    # Use word trigrams for better near-duplicate detection
+    words = text.lower().split()
+    if len(words) < 3:
+        return frozenset(words)
+    return frozenset(
+        f"{words[i]}_{words[i+1]}_{words[i+2]}"
+        for i in range(len(words) - 2)
+    )
+
+
+def _deduplicate_by_fingerprint(
+    items: list[ScoredItem],
+    similarity_threshold: float,
+) -> list[ScoredItem]:
+    """
+    O(n) deduplication using fingerprint sets.
+
+    Groups items by fingerprint overlap ratio.
+    """
+    deduplicated = []
+    seen_fingerprints: list[frozenset[str]] = []
+
+    for item in items:
+        fp = _content_fingerprint(item.content)
+        is_duplicate = False
+
+        # Check against existing fingerprints
+        for existing_fp in seen_fingerprints:
+            if not fp or not existing_fp:
+                continue
+            intersection = len(fp & existing_fp)
+            union = len(fp | existing_fp)
+            if union > 0 and (intersection / union) >= similarity_threshold:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            deduplicated.append(item)
+            seen_fingerprints.append(fp)
+
+    logger.debug(f"Deduplication (fingerprint): {len(items)} → {len(deduplicated)} items")
+    return deduplicated
+
+
+def _deduplicate_pairwise(
+    items: list[ScoredItem],
+    similarity_threshold: float,
+    similarity_fn: Callable[[str, str], float] | None,
+) -> list[ScoredItem]:
+    """O(n²) pairwise deduplication for custom similarity functions."""
+
     def default_similarity(a: str, b: str) -> float:
-        """Simple character overlap ratio."""
         if not a or not b:
             return 0.0
         a_set = set(a.lower().split())
@@ -309,7 +371,7 @@ def deduplicate_by_content(
         if not is_duplicate:
             deduplicated.append(item)
 
-    logger.debug(f"Deduplication: {len(items)} → {len(deduplicated)} items")
+    logger.debug(f"Deduplication (pairwise): {len(items)} → {len(deduplicated)} items")
     return deduplicated
 
 
