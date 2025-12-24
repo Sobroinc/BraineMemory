@@ -1,0 +1,71 @@
+[project]
+name = "braine-memory-mcp"
+version = "3.0.0"
+description = "Universal memory system for AI agents via MCP"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "BraineMemory Team" }
+]
+keywords = ["mcp", "memory", "ai", "surrealdb", "rag", "graphrag"]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "surrealdb>=0.3.0",
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.25.0",
+    "python-dotenv>=1.0.0",
+    "tiktoken>=0.5.0",
+    "tenacity>=8.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+sse = [
+    "uvicorn>=0.27.0",
+    "starlette>=0.36.0",
+    "sse-starlette>=1.0.0",
+]
+http = [
+    "uvicorn>=0.27.0",
+    "starlette>=0.36.0",
+]
+server = [
+    "uvicorn>=0.27.0",
+    "starlette>=0.36.0",
+    "sse-starlette>=1.0.0",
+]
+
+[project.scripts]
+braine-memory = "src.mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

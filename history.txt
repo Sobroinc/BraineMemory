@@ -1,0 +1,101 @@
+#V2
+-- ═══════════════════════════════════════════════════════════════════════════
+DEFINE TABLE IF NOT EXISTS drawing SCHEMAFULL;
+DEFINE FIELD asset ON drawing TYPE record<asset>;
+DEFINE FIELD title ON drawing TYPE option<string>;
+DEFINE FIELD drawing_type ON drawing TYPE string DEFAULT "unknown";
+DEFINE FIELD version_tag ON drawing TYPE option<string>;
+DEFINE FIELD status ON drawing TYPE string DEFAULT "active";
+DEFINE FIELD created_at ON drawing TYPE datetime DEFAULT time::now();
+DEFINE INDEX drawing_asset ON drawing FIELDS asset;
+DEFINE TABLE IF NOT EXISTS drawing_page SCHEMAFULL;
+DEFINE FIELD drawing ON drawing_page TYPE record<drawing>;
+DEFINE FIELD page_no ON drawing_page TYPE int;
+DEFINE FIELD layout_name ON drawing_page TYPE option<string>;
+DEFINE FIELD preview_asset ON drawing_page TYPE option<record<asset>>;
+DEFINE FIELD width_px ON drawing_page TYPE option<int>;
+DEFINE FIELD height_px ON drawing_page TYPE option<int>;
+DEFINE FIELD created_at ON drawing_page TYPE datetime DEFAULT time::now();
+DEFINE INDEX dpage_drawing ON drawing_page FIELDS drawing;
+DEFINE TABLE IF NOT EXISTS calibration SCHEMAFULL;
+DEFINE FIELD page ON calibration TYPE record<drawing_page>;
+DEFINE FIELD method ON calibration TYPE string;
+DEFINE FIELD unit ON calibration TYPE string;
+DEFINE FIELD scale ON calibration TYPE float;
+DEFINE FIELD confidence ON calibration TYPE float;
+DEFINE FIELD prov ON calibration TYPE option<record<provenance>>;
+DEFINE FIELD is_active ON calibration TYPE bool DEFAULT true;
+DEFINE FIELD created_at ON calibration TYPE datetime DEFAULT time::now();
+DEFINE INDEX calib_page ON calibration FIELDS page;
+DEFINE TABLE IF NOT EXISTS drawing_object SCHEMAFULL;
+DEFINE FIELD page ON drawing_object TYPE record<drawing_page>;
+DEFINE FIELD obj_type ON drawing_object TYPE string;
+DEFINE FIELD label ON drawing_object TYPE option<string>;
+DEFINE FIELD layer ON drawing_object TYPE option<string>;
+DEFINE FIELD geometry ON drawing_object FLEXIBLE TYPE object;
+DEFINE FIELD prov ON drawing_object TYPE option<record<provenance>>;
+DEFINE FIELD confidence ON drawing_object TYPE float;
+DEFINE FIELD status ON drawing_object TYPE string DEFAULT "active";
+DEFINE FIELD created_at ON drawing_object TYPE datetime DEFAULT time::now();
+DEFINE INDEX dobj_page ON drawing_object FIELDS page;
+DEFINE INDEX dobj_type ON drawing_object FIELDS obj_type;
+DEFINE INDEX dobj_label ON drawing_object FIELDS label;
+DEFINE TABLE IF NOT EXISTS dimension SCHEMAFULL;
+DEFINE FIELD page ON dimension TYPE record<drawing_page>;
+DEFINE FIELD dim_kind ON dimension TYPE string;
+DEFINE FIELD text_raw ON dimension TYPE option<string>;
+DEFINE FIELD value ON dimension TYPE option<float>;
+DEFINE FIELD unit ON dimension TYPE option<string>;
+DEFINE FIELD tol_plus ON dimension TYPE option<float>;
+DEFINE FIELD tol_minus ON dimension TYPE option<float>;
+DEFINE FIELD p1 ON dimension FLEXIBLE TYPE object;
+DEFINE FIELD p2 ON dimension FLEXIBLE TYPE object;
+DEFINE FIELD estimated ON dimension TYPE bool DEFAULT true;
+DEFINE FIELD source ON dimension TYPE string;
+DEFINE FIELD prov ON dimension TYPE option<record<provenance>>;
+DEFINE FIELD confidence ON dimension TYPE float;
+DEFINE FIELD created_at ON dimension TYPE datetime DEFAULT time::now();
+DEFINE INDEX dim_page ON dimension FIELDS page;
+DEFINE INDEX dim_kind ON dimension FIELDS dim_kind;
+DEFINE INDEX dim_value ON dimension FIELDS value;
+DEFINE TABLE IF NOT EXISTS dim_applies_to SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS callout_targets SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS drawing_same_as SCHEMALESS;
+-- ═══════════════════════════════════════════════════════════════════════════
+-- EXTENSION: PHOTO MEMORY
+-- ═══════════════════════════════════════════════════════════════════════════
+DEFINE TABLE IF NOT EXISTS photo_observation SCHEMAFULL;
+DEFINE FIELD asset ON photo_observation TYPE record<asset>;
+DEFINE FIELD obs_type ON photo_observation TYPE string;
+DEFINE FIELD severity ON photo_observation TYPE option<string>;
+DEFINE FIELD description ON photo_observation TYPE option<string>;
+DEFINE FIELD prov ON photo_observation TYPE option<record<provenance>>;
+DEFINE FIELD confidence ON photo_observation TYPE float;
+DEFINE FIELD verified ON photo_observation TYPE bool DEFAULT false;
+DEFINE FIELD verified_by ON photo_observation TYPE option<string>;
+DEFINE FIELD created_at ON photo_observation TYPE datetime DEFAULT time::now();
+DEFINE INDEX pobs_asset ON photo_observation FIELDS asset;
+DEFINE INDEX pobs_type ON photo_observation FIELDS obs_type;
+DEFINE INDEX pobs_severity ON photo_observation FIELDS severity;
+DEFINE TABLE IF NOT EXISTS photo_measurement SCHEMAFULL;
+DEFINE FIELD asset ON photo_measurement TYPE record<asset>;
+DEFINE FIELD method ON photo_measurement TYPE string;
+DEFINE FIELD unit ON photo_measurement TYPE string;
+DEFINE FIELD value ON photo_measurement TYPE float;
+DEFINE FIELD p1 ON photo_measurement FLEXIBLE TYPE object;
+DEFINE FIELD p2 ON photo_measurement FLEXIBLE TYPE object;
+DEFINE FIELD estimated ON photo_measurement TYPE bool DEFAULT true;
+DEFINE FIELD confidence ON photo_measurement TYPE float;
+DEFINE FIELD prov ON photo_measurement TYPE option<record<provenance>>;
+DEFINE FIELD note ON photo_measurement TYPE option<string>;
+DEFINE FIELD created_at ON photo_measurement TYPE datetime DEFAULT time::now();
+DEFINE INDEX pmeas_asset ON photo_measurement FIELDS asset;
+DEFINE INDEX pmeas_method ON photo_measurement FIELDS method;
+DEFINE TABLE IF NOT EXISTS evidence_of SCHEMALESS;
+-- ═══════════════════════════════════════════════════════════════════════════
+-- INITIAL SETTINGS DATA
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Note: This reset is intentional to ensure consistent settings state
+DELETE settings;
+INSERT INTO settings (key, value, description) VALUES  ('embedding.model', 'text-embedding-3-large', 'Only embedding model allowed'),  ('embedding.dim', 3072, 'Native dimension for text-embedding-3-large'),  ('embedding.cost_per_1m', 0.13, 'USD per 1M tokens'),  ('embedding.cost_per_1m_batch', 0.065, 'USD per 1M tokens (Batch API)'),  ('embedding.max_tokens', 8191, 'Max input tokens per request'),  ('vision.model', 'gpt-5.2-2025-12-11', 'Vision/extraction model snapshot'),  ('vision.cost_input_per_1m', 1.75, 'USD per 1M input tokens'),  ('vision.cost_output_per_1m', 14.0, 'USD per 1M output tokens'),  ('vision.cost_cached_per_1m', 0.175, 'USD per 1M cached input tokens'),  ('vision.context_window', 400000, 'Max context tokens'),  ('vision.max_output', 128000, 'Max output tokens'),  ('system.version', '2.2', 'BraineMemory schema version'),  ('system.index_type', 'HNSW', 'Vector index algorithm'),  ('system.created_at', time::now(), 'Schema creation timestamp');
+SELECT key, value FROM settings;

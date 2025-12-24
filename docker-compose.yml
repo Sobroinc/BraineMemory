@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SurrealDB - Main database (documents + graphs + vectors + FTS)
+  # ═══════════════════════════════════════════════════════════════════════════
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: braine-surrealdb
+    command: start --user root --pass root --log info file:/data/database.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - surrealdb_data:/data
+    environment:
+      - SURREAL_HNSW_CACHE_SIZE=1000000
+    healthcheck:
+      test: ["CMD", "surreal", "isready", "--conn", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BraineMemory MCP Server
+  # ═══════════════════════════════════════════════════════════════════════════
+  braine-memory:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: braine-memory-mcp
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    environment:
+      - SURREAL_URL=ws://surrealdb:8000/rpc
+      - SURREAL_USER=root
+      - SURREAL_PASS=root
+      - SURREAL_NS=brainememory
+      - SURREAL_DB=main
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBEDDING_MODEL=text-embedding-3-large
+      - EMBEDDING_DIM=3072
+      - VISION_MODEL=gpt-5.2-2025-12-11
+      - MCP_TRANSPORT=sse
+      - LOG_LEVEL=INFO
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  surrealdb_data:
+    driver: local
